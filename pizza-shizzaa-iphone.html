@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>🍕 Pizza Shizzaa!</title>
+<style>
+  *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body {
+    width:100%; height:100%;
+    overflow:hidden;
+    background:#1a0a00;
+    font-family: 'Comic Sans MS', 'Chalkboard SE', 'Arial Rounded MT Bold', Arial, sans-serif;
+  }
+  #wrap {
+    position:fixed;
+    top:0; left:0; right:0; bottom:0;
+    background:#FF6B35;
+    display:flex;
+    flex-direction:column;
+  }
+  #gh {
+    flex-shrink:0;
+    background:#FF6B35;
+    padding:10px 14px;
+    padding-top: max(10px, env(safe-area-inset-top));
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+  }
+  .sb {
+    background:rgba(255,255,255,0.28);
+    border-radius:10px;
+    padding:5px 12px;
+    font-size:16px;
+    font-weight:900;
+    color:#fff;
+    min-width:72px;
+    text-align:center;
+  }
+  #gtitle {
+    font-size:16px;
+    font-weight:900;
+    color:#fff;
+    letter-spacing:1px;
+    text-shadow:1px 1px 0 rgba(0,0,0,0.25);
+  }
+  canvas {
+    display:block;
+    flex:1;
+    width:100%;
+  }
+  .overlay {
+    position:fixed;
+    top:0; left:0; right:0; bottom:0;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    background:#FF6B35;
+    z-index:20;
+    padding:24px;
+  }
+  .btitle {
+    font-size:42px;
+    font-weight:900;
+    color:#fff;
+    text-shadow:3px 3px 0 #9e2e00;
+    margin:0 0 10px;
+    text-align:center;
+  }
+  .sub  { color:#ffd0b5; font-size:16px; margin:5px 0; text-align:center; }
+  .hint { color:rgba(255,255,255,0.85); font-size:14px; margin:4px 0; text-align:center; }
+  .legend {
+    display:flex;
+    gap:22px;
+    margin:14px 0 6px;
+    font-size:15px;
+    color:#fff;
+    font-weight:700;
+  }
+  .leg-item { display:flex; align-items:center; gap:7px; }
+  .dot { width:18px; height:18px; border-radius:50%; flex-shrink:0; }
+  .gbtn {
+    background:#FFD700;
+    color:#7a3800;
+    border:none;
+    border-radius:50px;
+    padding:16px 50px;
+    font-size:26px;
+    font-weight:900;
+    cursor:pointer;
+    font-family:inherit;
+    margin-top:20px;
+    box-shadow:0 5px 0 #b8860b;
+    -webkit-appearance:none;
+    outline:none;
+  }
+  .gbtn:active { transform:translateY(3px); box-shadow:0 2px 0 #b8860b; }
+  #hs-row { color:#ffe8d6; font-size:15px; margin-top:10px; }
+</style>
+</head>
+<body>
+<div id="wrap">
+
+  <!-- Title -->
+  <div class="overlay" id="ts">
+    <div class="btitle">🍕 PIZZA SHIZZAA!</div>
+    <div class="sub">Uhvati <strong>sastojke</strong> za pizzu!</div>
+    <div class="sub">Izbjegavaj <strong>bube i smeće!</strong> 🪲💩</div>
+    <div class="legend">
+      <div class="leg-item"><div class="dot" style="background:#E8150A;border:3px solid #FF5040"></div> Dobro</div>
+      <div class="leg-item"><div class="dot" style="background:#0D5500;border:3px solid #3BAA00"></div> Loše!</div>
+    </div>
+    <div class="hint">👆 Pomičeš prstom lijevo-desno</div>
+    <button class="gbtn" id="startBtn">IGRAJ! 🎮</button>
+    <div id="hs-row"></div>
+  </div>
+
+  <!-- Game Over -->
+  <div class="overlay" id="gos" style="display:none">
+    <div class="btitle">GAME OVER! 😢</div>
+    <div id="fs" style="color:#ffe8d6;font-size:28px;margin:12px 0;font-weight:900;text-align:center;"></div>
+    <div id="ghs" style="color:#ffd0b5;font-size:18px;margin:4px 0;"></div>
+    <button class="gbtn" id="restartBtn">OPET! 🔄</button>
+  </div>
+
+  <!-- HUD -->
+  <div id="gh">
+    <div class="sb">⭐ <span id="sd">0</span></div>
+    <div id="gtitle">PIZZA SHIZZAA</div>
+    <div class="sb" id="ld">❤️❤️❤️❤️❤️</div>
+  </div>
+
+  <canvas id="gc"></canvas>
+</div>
+
+<script>
+(function(){
+  var canvas = document.getElementById('gc');
+  var ctx    = canvas.getContext('2d');
+  var W, H;
+
+  function resize() {
+    var rect = canvas.getBoundingClientRect();
+    W = Math.round(rect.width);
+    H = Math.round(rect.height);
+    canvas.width  = W;
+    canvas.height = H;
+  }
+  // wait for layout then resize
+  setTimeout(resize, 60);
+  window.addEventListener('resize', resize);
+  window.addEventListener('orientationchange', function(){ setTimeout(resize,200); });
+
+  var GOODS = [
+    { e:'🍅', p:10,  bg:'#D41008', ring:'#FF5040' },
+    { e:'🧀', p:10,  bg:'#E09500', ring:'#FFD030' },
+    { e:'🍄', p:15,  bg:'#7B3200', ring:'#C86030' },
+    { e:'🫑', p:15,  bg:'#157A12', ring:'#42D83E' },
+    { e:'🥩', p:20,  bg:'#B50D08', ring:'#FF5050' },
+    { e:'🫒', p:20,  bg:'#174D14', ring:'#3D9938' },
+    { e:'🌶️',p:25,  bg:'#C50800', ring:'#FF4422' },
+    { e:'🦐', p:25,  bg:'#D05020', ring:'#FF9060' },
+  ];
+  var BADS = [
+    { e:'🪲', p:-1, bg:'#0D5500', ring:'#3BAA00' },
+    { e:'💩', p:-1, bg:'#4A2800', ring:'#906040' },
+  ];
+
+  var score, lives, items, trayX, running, speed, frame, popups, shake;
+  var highScore = 0;
+  var MAX_LIVES = 5;
+  var TW = 0, TH = 0, TY_OFF = 0, IR = 0;
+
+  function setDims() {
+    TW     = Math.round(W * 0.30);
+    TH     = Math.round(W * 0.055);
+    TY_OFF = Math.round(H * 0.09);
+    IR     = Math.round(W * 0.068);
+    if (TW < 90) TW = 90;
+    if (IR < 20) IR = 20;
+    if (IR > 30) IR = 30;
+  }
+
+  function trayY() { return H - TY_OFF; }
+
+  function startGame() {
+    resize();
+    setDims();
+    document.getElementById('ts').style.display  = 'none';
+    document.getElementById('gos').style.display = 'none';
+    score=0; lives=MAX_LIVES; items=[]; trayX=W/2;
+    running=true; speed=1.1; frame=0; popups=[]; shake=0;
+    updateUI();
+    requestAnimationFrame(loop);
+  }
+
+  document.getElementById('startBtn').addEventListener('click', startGame);
+  document.getElementById('restartBtn').addEventListener('click', startGame);
+
+  function updateUI() {
+    document.getElementById('sd').textContent = score;
+    var h = '';
+    for (var i=0; i<Math.max(0,lives); i++) h += '❤️';
+    document.getElementById('ld').textContent = h;
+  }
+
+  function spawn() {
+    var bad  = Math.random() < 0.13;
+    var pool = bad ? BADS : GOODS;
+    var t    = pool[Math.floor(Math.random() * pool.length)];
+    items.push({
+      x: IR+14 + Math.random()*(W - IR*2 - 28),
+      y: -IR,
+      vy: speed + Math.random()*0.9,
+      e: t.e, p: t.p, bg: t.bg, ring: t.ring,
+      w: Math.random()*Math.PI*2,
+      caught: false, alpha: 1, scale: 1
+    });
+  }
+
+  function popup(x, y, txt, col) {
+    popups.push({ x:x, y:y, txt:txt, col:col, life:70 });
+  }
+
+  function loop() {
+    if (!running) return;
+    frame++;
+
+    if (frame % 720 === 0 && speed < 5.2) speed += 0.10;
+
+    var spawnRate = Math.max(62 - Math.floor(speed*9), 24);
+    if (frame % spawnRate === 0) spawn();
+
+    if (shake > 0) shake--;
+    var ox = shake > 0 ? (Math.random()-0.5)*shake*2.5 : 0;
+    var oy = shake > 0 ? (Math.random()-0.5)*shake     : 0;
+    ctx.save();
+    ctx.translate(ox, oy);
+
+    // Background
+    ctx.fillStyle = '#FFEFC7';
+    ctx.fillRect(0, 0, W, H);
+
+    // Grid
+    ctx.strokeStyle = '#FFD98A';
+    ctx.lineWidth = 1;
+    for (var yy=44; yy<H; yy+=44) {
+      ctx.beginPath(); ctx.moveTo(0,yy); ctx.lineTo(W,yy); ctx.stroke();
+    }
+
+    var ty = trayY();
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.15)';
+    ctx.beginPath();
+    ctx.ellipse(trayX, ty+Math.round(TH*0.9), TW/2+8, Math.round(TH*0.55), 0, 0, Math.PI*2);
+    ctx.fill();
+
+    // Tray dark border
+    ctx.fillStyle = '#4A1E00';
+    rr(ctx, trayX-TW/2-9, ty-TH/2+6, TW+18, TH+9, 11);
+    ctx.fill();
+    // Tray surface
+    ctx.fillStyle = '#C25018';
+    rr(ctx, trayX-TW/2, ty-TH/2, TW, TH, 8);
+    ctx.fill();
+    // Highlight
+    ctx.fillStyle = 'rgba(255,255,255,0.32)';
+    rr(ctx, trayX-TW/2+8, ty-TH/2+4, TW-16, 6, 3);
+    ctx.fill();
+
+    // Items
+    ctx.textAlign   = 'center';
+    ctx.textBaseline = 'middle';
+    var eFontSize = Math.round(IR * 1.6);
+
+    for (var i=items.length-1; i>=0; i--) {
+      var it = items[i];
+
+      if (!it.caught) {
+        it.y += it.vy;
+        it.w += 0.055;
+        var wx = Math.sin(it.w) * 5;
+        var dx = it.x + wx;
+
+        // Catch
+        if (it.y+IR >= ty-TH/2 && it.y-IR < ty+TH/2 &&
+            dx > trayX-TW/2 && dx < trayX+TW/2) {
+          it.caught = true;
+          if (it.p > 0) {
+            score += it.p;
+            popup(dx, ty-50, '+'+it.p, '#0A7A0A');
+          } else {
+            lives--;
+            shake = 8;
+            popup(dx, ty-50, 'JAAOJ! 🤮', '#CC0000');
+            updateUI();
+            if (lives <= 0) { gameOver(); ctx.restore(); return; }
+          }
+          updateUI();
+          continue;
+        }
+
+        // Fell out
+        if (it.y - IR > H) {
+          if (it.p > 0) popup(it.x, H-70, 'promašaj…', '#AA7700');
+          items.splice(i, 1);
+          continue;
+        }
+
+        // Draw glow ring
+        ctx.beginPath();
+        ctx.arc(dx, it.y, IR+6, 0, Math.PI*2);
+        ctx.fillStyle = it.ring;
+        ctx.fill();
+        // Disc
+        ctx.beginPath();
+        ctx.arc(dx, it.y, IR, 0, Math.PI*2);
+        ctx.fillStyle = it.bg;
+        ctx.fill();
+        // Emoji
+        ctx.font = eFontSize+'px serif';
+        ctx.fillText(it.e, dx, it.y+1);
+
+      } else {
+        it.alpha -= 0.08;
+        it.y     -= 4;
+        it.scale += 0.05;
+        if (it.alpha <= 0) { items.splice(i,1); continue; }
+        ctx.save();
+        ctx.globalAlpha = it.alpha;
+        ctx.translate(it.x, it.y);
+        ctx.scale(it.scale, it.scale);
+        ctx.font = eFontSize+'px serif';
+        ctx.textAlign   = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(it.e, 0, 0);
+        ctx.restore();
+      }
+    }
+
+    // Popups
+    for (var j=popups.length-1; j>=0; j--) {
+      var pp = popups[j];
+      pp.life--; pp.y -= 1.2;
+      ctx.save();
+      ctx.globalAlpha = pp.life/70;
+      ctx.font = 'bold 20px Arial, sans-serif';
+      ctx.textAlign   = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.lineWidth   = 4;
+      ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+      ctx.strokeText(pp.txt, pp.x, pp.y);
+      ctx.fillStyle = pp.col;
+      ctx.fillText(pp.txt, pp.x, pp.y);
+      ctx.restore();
+      if (pp.life <= 0) popups.splice(j,1);
+    }
+
+    // Speed bar
+    var pct = Math.min((speed-1.1)/4.1, 1);
+    ctx.fillStyle = 'rgba(0,0,0,0.10)';
+    ctx.fillRect(0, H-5, W, 5);
+    ctx.fillStyle = pct < 0.4 ? '#27AE60' : pct < 0.72 ? '#F39C12' : '#E74C3C';
+    ctx.fillRect(0, H-5, W*pct, 5);
+
+    ctx.restore();
+    requestAnimationFrame(loop);
+  }
+
+  function gameOver() {
+    running = false;
+    if (score > highScore) highScore = score;
+    document.getElementById('fs').textContent  = '⭐ Rezultat: ' + score;
+    document.getElementById('ghs').textContent = '🏆 Rekord: '  + highScore;
+    document.getElementById('gos').style.display = 'flex';
+    document.getElementById('hs-row').textContent = highScore > 0 ? '🏆 Rekord: '+highScore : '';
+  }
+
+  // roundRect polyfill — no native API, works in all iOS Safari
+  function rr(c, x, y, w, h, r) {
+    if (r > w/2) r = w/2;
+    if (r > h/2) r = h/2;
+    c.beginPath();
+    c.moveTo(x+r, y);
+    c.lineTo(x+w-r, y);
+    c.quadraticCurveTo(x+w, y, x+w, y+r);
+    c.lineTo(x+w, y+h-r);
+    c.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+    c.lineTo(x+r, y+h);
+    c.quadraticCurveTo(x, y+h, x, y+h-r);
+    c.lineTo(x, y+r);
+    c.quadraticCurveTo(x, y, x+r, y);
+    c.closePath();
+  }
+
+  // Touch — follow finger
+  canvas.addEventListener('touchstart', function(e){ e.preventDefault(); moveTray(e.touches[0]); }, { passive:false });
+  canvas.addEventListener('touchmove',  function(e){ e.preventDefault(); moveTray(e.touches[0]); }, { passive:false });
+
+  function moveTray(touch) {
+    if (!running) return;
+    var r = canvas.getBoundingClientRect();
+    var raw = (touch.clientX - r.left) * (W / r.width);
+    trayX = Math.max(TW/2, Math.min(W - TW/2, raw));
+  }
+
+  // Mouse fallback
+  canvas.addEventListener('mousemove', function(e){
+    if (!running) return;
+    var r = canvas.getBoundingClientRect();
+    trayX = Math.max(TW/2, Math.min(W-TW/2, (e.clientX-r.left)*(W/r.width)));
+  });
+
+  // Keyboard fallback
+  document.addEventListener('keydown', function(e){
+    if (!running) return;
+    var s = 32;
+    if (e.key==='ArrowLeft')  { trayX = Math.max(TW/2, trayX-s); e.preventDefault(); }
+    if (e.key==='ArrowRight') { trayX = Math.min(W-TW/2, trayX+s); e.preventDefault(); }
+  });
+
+})();
+</script>
+</body>
+</html>
